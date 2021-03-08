@@ -28,11 +28,14 @@ x_err_process = 9  # Position uncertainty for the first prediction [m]
 v_err_process = 2  # Velocity uncertainty for the first prediction [m/s]
 
 x_err_measure = 10  # Position uncertainty in observation data [m]
+v_err_measure = 1  # Velocity uncertainty in observation data [m]
+
+prev_state = np.array([x_0, v_0]).transpose()
+prev_process_covariance = P
 ```
-2. Initialize process and measurement covariance matrices:
+2. Initialize process covariance matrices:
 ```
 P = np.array([[x_err_process ** 2, 0], [0, v_err_process ** 2]])
-R = np.array([x_err_measure ** 2])
 ```
 3. Calculate the predicted state:
 ```
@@ -47,36 +50,40 @@ process_covariance_estimate = A @ prev_process_covariance @ A.transpose() + nois
 
 process_covariance_estimate = np.diag(np.diag(process_covariance_estimate))
 ```
-5. Calculate the Kalman gain (weighting factor)
+5. Calculate measurement covariance matrix:
+```
+R = np.array([x_err_measure ** 2, 0], [0, v_err_measure ** 2])
+```
+6. Calculate the Kalman gain (weighting factor)
 ```
 H = np.identity(2)
 denominator = H @ process_covariance_estimate @ H.transpose() + measurement_covariance
 
 kalman_gain = process_covariance_estimate @ H @ np.linalg.inv(denominator)
 ```
-6. Make a measurement
+7. Take a measurement of the state
 ```
 C = np.identity(2)
 
 state_measurement = C.dot(measured_state) + noise_matrix
 ```
-7. Calculate adjusted state based on the predicted state, measured state, and kalman gain
+8. Calculate adjusted state based on the predicted state, measured state, and kalman gain
 ```
 H = np.identity(2)
 
 adjusted_state = state_estimate + kalman_gain @ (state_measurement - (H @ state_estimate)
 ```
-8. Calculate adjusted process covariance based on the kalman gain
+9. Calculate adjusted process covariance based on the kalman gain
 ```
 I = np.identity(2)
 H = np.identity(2)
-adjusted_process_covariance = (I - kalman_gain.transpose() @ H) @ process_covariance_estimate
+adjusted_process_covariance = (I - kalman_gain @ H) @ process_covariance_estimate
 
 adjusted_process_covariance = np.diag(np.diag(process_covariance))
 ```
-9. Update previous state & covariance matrix
+10. Update previous state & covariance matrix
 ```
 prev_state = adjusted_state
 prev_process_covariance = adjusted_process_covariance
 ```
-10. Repeat
+11. Repeat
