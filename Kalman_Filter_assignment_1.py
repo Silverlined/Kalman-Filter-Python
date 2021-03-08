@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # Initial Conditions
 a = 1  # Acceleration [m/s^2]
-# if acceleration changes it can be seperately calculated by using the measured position and time and/or velocity and time.
+sd_noise = 0.2  # Acceleration noise, due to road surface, wind, etc. [m/s^2], one standard deviation (sd)
 x_0 = 0  # Position [m]
 v_0 = 0  # Velocity [m/s]
 t = 0.1  # Time step [s]
@@ -20,6 +20,13 @@ x_err_measure = 10  # Position error [m]
 
 # Control variable matrix
 U = np.array([a])
+
+estimation_noise_matrix = np.array(
+    [
+        [((0.5 * (t ** 2)) ** 2) * (sd_noise ** 2), ((0.5 * (t ** 2)) * sd_noise) * (t * sd_noise)],
+        [((0.5 * (t ** 2)) * sd_noise) * (t * sd_noise), (t ** 2) * (sd_noise ** 2)],
+    ]
+)
 
 # Step 1 Initialize process covariance matrix
 # The covariance elements in the process covariance matrix are set to 0, based on the assumption that variable 'x' is independent of the other variable 'v'
@@ -60,7 +67,7 @@ def calculate_measurement_covariance(x_err_measure):
 # In this example, the kalman gain matrix should have 2x1 format, because the measurement covariance is 1x1
 def calculate_kalman_gain(process_covariance_estimate, measurement_covariance):
     # General use case when process and measurement covariance matrices have the same format:
-    # H = np.identity(2)
+    # H = np.array([1, 0])
     # denominator = H @ process_covariance_estimate @ H.transpose() + measurement_covariance
     # kalman_gain = process_covariance_estimate @ H @ np.linalg.inv(denominator)
 
@@ -127,7 +134,9 @@ def main():
         state_estimate = calculate_state_estimate(prev_state, control_variable_matrix=U, noise_matrix=0)
 
         # Predict the error in the estimate
-        process_covariance_estimate = calculate_process_covariance_estimate(prev_process_covariance, noise_matrix=0)
+        process_covariance_estimate = calculate_process_covariance_estimate(
+            prev_process_covariance, noise_matrix=0  # or estimation_noise_matrix
+        )
 
         # Make a state measurement
         state_measurement = calculate_state_measurement(

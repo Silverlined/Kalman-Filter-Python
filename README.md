@@ -5,7 +5,7 @@ The Kalman filter is a probabilistic state estimator technique which is used to 
 
 The Kalman filter makes two important assumptions. The first one is that everything is Gaussian, i.e. sensor observations, errors, and noise follow a Gaussian (normal) distribution. The second assumption is that all models are linear, i.e. the model that estimates where the system will be at the next point in time and the observation model of the sensor data are both linear models.
 
-However, it is important to realize that we live in a non-linear world where non-Gaussian distributions are the standard. The Extended Kalman Filter (EKF) is a variant of the Kalman Filter that tries to deal with these nonlinearities. What it does is basically performing local linearization via Taylor expansion. So it performs a Taylor approximation of the non-linear models and turns them into linear ones given a current linearization point. 
+However, it is important to realize that we live in a non-linear world where non-Gaussian distributions are the standard. The Extended Kalman Filter (EKF) is a variant of the Kalman Filter that tries to deal with these nonlinearities. The EKF performs a Taylor approximation (i.e. local linearization) of the non-linear models at a given measurement point. 
 
 ---
 
@@ -18,6 +18,7 @@ However, it is important to realize that we live in a non-linear world where non
 ## 3. Implementation in Python
 
 1. Define initial conditions:
+> The process covariance matrix corrects itself in the process of iterations, however we should initially make an educated guess of what the error in the first predicted state will be.
 ```
 a = 1  # Acceleration [m/s^2]
 x_0 = 0  # Position [m]
@@ -33,24 +34,27 @@ v_err_measure = 1  # Velocity uncertainty in observation data [m]
 prev_state = np.array([x_0, v_0]).transpose()
 prev_process_covariance = P
 ```
-2. Initialize process covariance matrices:
+2. Initialize process covariance matrix:
+> The covariance elements in the process covariance matrix are set to 0, based on the assumption that variable 'x' is independent of the other variable 'v'. No adjustments are made to the estimates of one variable due to the process error of the other variable
 ```
 P = np.array([[x_err_process ** 2, 0], [0, v_err_process ** 2]])
 ```
 3. Calculate the predicted state:
+> State noise (covariance matrix) - predicted errors in the state due to external factors influencing the system; external forces acting on the object, e.g. friction, wind gust, water currents.
 ```
 A = np.array([[1, t], [0, 1]])
 B = np.array([[0.5 * (t ** 2)], [t]])
 
 state_estimate = A.dot(prev_state) + B.dot(control_variable_matrix) + noise_matrix
 ```
-4. Calculate the predicted process covariance matrix:
+4. Calculate the predicted process covariance matrix (error in the state estimate):
+> Process noise (covariance matrix) - keeps the covariance matrix from becoming too small or 0. It can be the result of given noise in the control variables. (e.g. acceleration noise)
 ```
 process_covariance_estimate = A @ prev_process_covariance @ A.transpose() + noise_matrix
 
 process_covariance_estimate = np.diag(np.diag(process_covariance_estimate))
 ```
-5. Calculate measurement covariance matrix:
+5. Calculate measurement covariance matrix (error in the state measurement):
 ```
 R = np.array([x_err_measure ** 2, 0], [0, v_err_measure ** 2])
 ```
@@ -62,6 +66,7 @@ denominator = H @ process_covariance_estimate @ H.transpose() + measurement_cova
 kalman_gain = process_covariance_estimate @ H @ np.linalg.inv(denominator)
 ```
 7. Take a measurement of the state
+> Measurement noise (covariance matrix) - errors due to unknown factors of the equipment, temperature variations, filter inaccuracies, etc. and can not be predicted, but are known not to exceed certain values.
 ```
 C = np.identity(2)
 
