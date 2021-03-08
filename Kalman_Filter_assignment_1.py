@@ -24,7 +24,7 @@ U = np.array([a])
 # Step 1 Initialize process covariance matrix
 # The covariance elements in the process covariance matrix are set to 0, based on the assumption that variable 'x' is independent of the other variable 'v'
 # No adjustments are made to the estimates of one variable due to the process error of the other variable
-def init_covariance_matrices(x_err_process, v_err_process):
+def init_process_covariance_matrix(x_err_process, v_err_process):
     P = np.array([[x_err_process ** 2, 0], [0, v_err_process ** 2]])
     return P
 
@@ -45,7 +45,7 @@ def calculate_state_estimate(prev_state, control_variable_matrix, noise_matrix):
 # Process noise - keeps the covariance matrix from becoming too small or 0
 def calculate_process_covariance_estimate(prev_process_covariance, noise_matrix):
     A = np.array([[1, t], [0, 1]])
-    process_covariance_estimate = A @ prev_process_covariance @ A.transpose()
+    process_covariance_estimate = A @ prev_process_covariance @ A.transpose() + noise_matrix
     # Zero out the covariance terms in the matrix
     return np.diag(np.diag(process_covariance_estimate))
 
@@ -60,7 +60,7 @@ def calculate_measurement_covariance(x_err_measure):
 # In this example, the kalman gain matrix should have 2x1 format, because the measurement covariance is 1x1
 def calculate_kalman_gain(process_covariance_estimate, measurement_covariance):
     # General use case when process and measurement covariance matrices have the same format:
-    # H = np.array([1, 0])
+    # H = np.identity(2)
     # denominator = H @ process_covariance_estimate @ H.transpose() + measurement_covariance
     # kalman_gain = process_covariance_estimate @ H @ np.linalg.inv(denominator)
 
@@ -111,7 +111,7 @@ def main():
     data_frame = pd.read_excel("KF_data.xlsx", engine="openpyxl")
     print(np.take(data_frame["data"].to_numpy(), -1))
 
-    prev_process_covariance = init_covariance_matrices(x_err_process, v_err_process)
+    prev_process_covariance = init_process_covariance_matrix(x_err_process, v_err_process)
     prev_state = np.array([x_0, v_0]).transpose()
 
     collected_data = data_frame["data"].to_numpy()
