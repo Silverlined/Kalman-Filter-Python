@@ -19,15 +19,12 @@ R_measurement_noise_matrix = np.array([[10, 0, 0, 0], [0, 10, 0, 0], [0, 0, 10, 
 
 
 def accelerometer_to_attitude(accelerometer_x, accelerometer_y, accelerometer_z):
-    # Using exclusively the accelerometer data, Reference - Tilt Sensing Using a Three-Axis Accelerometer, Freescale
-    roll = np.arctan2(accelerometer_y, accelerometer_z)
-    pitch = np.arctan2(-accelerometer_x, sqrt(accelerometer_y * accelerometer_y + accelerometer_z * accelerometer_z))
+    pitch = np.arcsin(accelerometer_x / g)
+    roll = np.arcsin(accelerometer_y / (g * np.cos(pitch)))
     yaw = 0
 
-    ### Conversion to degrees is unnecessary because numpy functions work with radians
-    # pitch = pitch * 180 / np.pi
-    # roll = roll * 180 / np.pi
-
+    # roll = np.arctan2(accelerometer_y, accelerometer_z)
+    # pitch = np.arctan2(-accelerometer_x, sqrt(accelerometer_y * accelerometer_y + accelerometer_z * accelerometer_z))
     # return np.array([roll, pitch, yaw], ndmin=2).transpose()
     return roll, pitch, yaw
 
@@ -42,46 +39,27 @@ def euler_angles_to_quaternions(roll, pitch, yaw):
     return q_1, q_2, q_3, q_4
 
 
-def quoternions_to_euler_angles(w, x, y, z):
-    ysqr = y * y
+def quoternions_to_euler_angles(q_1, q_2, q_3, q_4):
+    phi = np.degrees(np.arctan2(2 * (q_1 * q_2 + q_3 * q_4), 1 - 2 * (q_2 ** 2 + q_3 ** 2)))
+    theta = np.degrees(np.arcsin(2 * (q_1 * q_3 - q_4 * q_2)))
+    omega = np.degrees(np.arctan2(2 * (q_1 * q_4 + q_2 * q_3), 1 - 2 * (q_3 ** 2 + q_4 ** 2)))
 
-    t0 = +2.0 * (w * x + y * z)
-    t1 = +1.0 - 2.0 * (x * x + ysqr)
-    X = np.degrees(np.arctan2(t0, t1))
-
-    t2 = +2.0 * (w * y - z * x)
-
-    t2 = np.clip(t2, a_min=-1.0, a_max=1.0)
-    Y = np.degrees(np.arcsin(t2))
-
-    t3 = +2.0 * (w * z + x * y)
-    t4 = +1.0 - 2.0 * (ysqr + z * z)
-    Z = np.degrees(np.arctan2(t3, t4))
-
-    return X, Y, Z
-
-    # phi = np.arctan2(2 * (q_1 * q_2 + q_3 * q_4), 1 - 2 * (q_2 ** 2 + q_3 ** 2))
-    # theta = np.arcsin(2 * (q_1 * q_3 - q_4 * q_2))
-    # omega = np.arctan2(2 * (q_1 * q_4 + q_2 * q_3), 1 - 2 * (q_3 ** 2 + q_4 ** 2))
-
-    # # return np.array([phi, theta, omega], ndmin=2).transpose()
-    # return phi, theta, omega
+    # return np.array([phi, theta, omega], ndmin=2).transpose()
+    return phi, theta, omega
 
 
 def calculate_transormation_martix_A(gyro_phi, gyro_theta, gyro_omega):
     A = np.array(
-        [
-            np.identity(4)
-            + (delta_t / 2)
-            * np.array(
-                [
-                    [0, -gyro_phi, -gyro_theta, -gyro_omega],
-                    [gyro_phi, 0, gyro_omega, -gyro_theta],
-                    [gyro_theta, -gyro_omega, 0, gyro_phi],
-                    [gyro_omega, gyro_theta, -gyro_phi, 0],
-                ]
-            )
-        ]
+        np.identity(4)
+        + (delta_t / 2)
+        * np.array(
+            [
+                [0, -gyro_phi, -gyro_theta, -gyro_omega],
+                [gyro_phi, 0, gyro_omega, -gyro_theta],
+                [gyro_theta, -gyro_omega, 0, gyro_phi],
+                [gyro_omega, gyro_theta, -gyro_phi, 0],
+            ]
+        )
     )
     return A
 
@@ -99,36 +77,41 @@ def main():
 
     # Read Excel Sheet
     data_frame = pd.read_excel("KF_data_2.xlsx", engine="openpyxl")
-    # gyro_roll = data_frame["Gyro Roll"].to_numpy()
+    # gyro_roll = data_frame["Gyro Phi"].to_numpy()
     # gyro_pitch = data_frame["Gyro Pitch"].to_numpy()
 
     # Collect Data
     collected_data = data_frame.to_numpy()
     accelerometer_data = np.array([data_frame["Accel X"], data_frame["Accel Y"], data_frame["Accel Z"]], ndmin=2).transpose()
-    gyro_data = np.array([data_frame["Gyro Phi"], data_frame["Gyro Theta"], data_frame["Gyro Omega"]], ndmin=2).transpose()
+    gyro_data = np.array(
+        [np.radians(data_frame["Gyro Phi"]), np.radians(data_frame["Gyro Theta"]), np.radians(data_frame["Gyro Omega"])], ndmin=2
+    ).transpose()
 
-    time = np.linspace(0, 4000.2, num=20001)
+    time = np.linspace(0, 200.1, num=20001)
     kalman_corrected_phi = []
     kalman_corrected_theta = []
     kalman_corrected_omega = []
     i = 0
+    break_point = 50000
+
     # Read gyro and accelerometer data
     for accelerometer_measurement, gyro_measurement in zip(accelerometer_data, gyro_data):
-        if i == 3:
-            print(accelerometer_measurement, gyro_measurement)
+        if i == break_point:
+            # print(accelerometer_measurement, gyro_measurement)
             break
 
         # Create a new matrix 'A' with angular velocities from gyro data
         A = calculate_transormation_martix_A(gyro_measurement[0], gyro_measurement[1], gyro_measurement[2])
 
         # Calculate the state estimate and process covariance estimate
-        state_estimate = A.dot(prev_state)
+        state_estimate = A @ prev_state
         process_covariance_estimate = A @ prev_process_covariance @ A.transpose() + Q_process_noise_matrix
+        # process_covariance_estimate = np.diag(np.diag(process_covariance_estimate))
 
         # Compute the Kalman gain
         kalman_gain = (
             process_covariance_estimate
-            @ H.transpose()
+            @ H
             @ inverse(H @ process_covariance_estimate @ H.transpose() + R_measurement_noise_matrix)
         )
 
@@ -156,25 +139,25 @@ def main():
         new_phi, new_theta, new_omega = quoternions_to_euler_angles(
             new_state.take(0), new_state.take(1), new_state.take(2), new_state.take(3)
         )
+
+        # Collect data for comparison
+        measured_phi, measured_theta, measured_omega = quoternions_to_euler_angles(q_1, q_2, q_3, q_4)
+
         kalman_corrected_phi.append(new_phi)
         kalman_corrected_theta.append(new_theta)
         kalman_corrected_omega.append(new_omega)
         i += 1
 
-    dictionary = {"Phi": kalman_corrected_phi, "Theta": kalman_corrected_theta, "Omega": kalman_corrected_omega}
-    data_frame = pd.DataFrame(data=dictionary)
-    print(data_frame.tail())
-
-
-# plt.plot(time, gyro_measurement, label="Measurement data")
-# # plt.plot(time, kalman_corrected_data, label="KF corrected data")
-# plt.xlabel("Time [s]")
-# plt.xticks(np.arange(0, 100.1, step=10))
-# plt.ylabel("Position [m]")
-# plt.title("Kalman Filter 1D example")
-# plt.legend()
-# plt.grid()
-# plt.show()
+    dictionary = {
+        "Time": time[:break_point],
+        "Phi": kalman_corrected_phi,
+        "Theta": kalman_corrected_theta,
+        "Omega": kalman_corrected_omega,
+    }
+    kalman_data = pd.DataFrame(data=dictionary)
+    print(kalman_data.tail())
+    kalman_data.plot(x="Time", y=["Theta"])
+    plt.show()
 
 
 if __name__ == "__main__":
