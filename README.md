@@ -1,4 +1,4 @@
-# Kalman Filter - 1D motion example - Assignment 1
+# Kalman Filter - 1D and AHRS example
 
 ## 1. What is a Kalman Filter?
 The Kalman filter is a probabilistic state estimator technique which is used to make an optimal estimation of the state of a dynamical system. It can also be explained as a recursive algorithm which consists of two main steps - Prediction & Correction. The prediction step takes, for example, the steering information of a vehicle or the motion control commands into account, in order to estimate, in order to predict, where the system will be at the next point in time. The correction step takes into account the sensor observation, in order to improve our prediction and adjust for potential errors.
