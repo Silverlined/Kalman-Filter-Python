@@ -10,8 +10,8 @@ However, it is important to realize that we live in a non-linear world where non
 ---
 
 ## 2. Flowchart of the Kalman Filter
-<img src="res/blockdiagram.png" width="640">
-<img src="res/steps.png" width="640">
+<img src="resources/blockdiagram.png" width="640">
+<img src="resources/steps.png" width="640">
 
 ---
 
