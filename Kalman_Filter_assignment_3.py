@@ -81,11 +81,8 @@ def main():
     # gyro_pitch = data_frame["Gyro Pitch"].to_numpy()
 
     # Collect Data
-    collected_data = data_frame.to_numpy()
     accelerometer_data = np.array([data_frame["Accel X"], data_frame["Accel Y"], data_frame["Accel Z"]], ndmin=2).transpose()
-    gyro_data = np.array(
-        [np.radians(data_frame["Gyro Phi"]), np.radians(data_frame["Gyro Theta"]), np.radians(data_frame["Gyro Omega"])], ndmin=2
-    ).transpose()
+    gyro_data = np.array([(data_frame["Gyro Phi"]), (data_frame["Gyro Theta"]), (data_frame["Gyro Omega"])], ndmin=2).transpose()
 
     time = np.linspace(0, 200.1, num=20001)
     kalman_corrected_phi = []
@@ -156,7 +153,7 @@ def main():
     }
     kalman_data = pd.DataFrame(data=dictionary)
     print(kalman_data.tail())
-    kalman_data.plot(x="Time", y=["Theta"])
+    kalman_data.plot(x="Time", y=["Phi"])
     plt.show()
 
 
